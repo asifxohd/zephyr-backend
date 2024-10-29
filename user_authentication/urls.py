@@ -6,6 +6,9 @@ from .views import (
     GoogleLoginAPIView,
     ChangePasswordView,
     PasswordResetRequestView,
+    ValidateTokenView,
+    ChangePasswordView,
+    ChangePasswordViewProfile
 )
 
 urlpatterns = [
@@ -15,6 +18,12 @@ urlpatterns = [
     ),
     path("resent-otp/", ResendOtpView.as_view(), name="resent-otp"),
     path("google-login/", GoogleLoginAPIView.as_view(), name="google-login"),
-    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
-    path('forgot-password/', PasswordResetRequestView.as_view(), name="password-reset")
+    path("change-password/", ChangePasswordViewProfile.as_view(), name="change-password"),
+    path("forgot-password/", PasswordResetRequestView.as_view(), name="password-reset"),
+    path("validate-token/", ValidateTokenView.as_view(), name="validate-token"),
+    path(
+        "reset-password/",
+        ChangePasswordView.as_view(),
+        name="change-password-forgot-password",
+    ),
 ]

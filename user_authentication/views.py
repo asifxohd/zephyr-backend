@@ -2,7 +2,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializer import *
 from rest_framework.views import APIView
 from django_redis import get_redis_connection
-import json
+import json , random
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.response import Response
@@ -10,15 +10,16 @@ from rest_framework import status, generics
 from datetime import datetime, timedelta
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError
-import random
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from django.utils.encoding import force_str, force_bytes
-from rest_framework.schemas import openapi
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
 from decouple import config
+from django.core.mail import EmailMessage
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.hashers import make_password
 
 class MyTokenObtainPairView(TokenObtainPairView):
     """
@@ -367,7 +368,7 @@ class GoogleLoginAPIView(APIView):
         return Response({"tokens": tokens}, status=status.HTTP_200_OK)
 
 
-class ChangePasswordView(generics.UpdateAPIView):
+class ChangePasswordViewProfile(generics.UpdateAPIView):
     """
     View to change the password of an authenticated user.
 
@@ -443,23 +444,41 @@ class PasswordResetRequestView(generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
 
     def post(self, request):
+        redis_connection = get_redis_connection("default")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data['email']
         user = CustomUser.objects.get(email=email)
-
         token = default_token_generator.make_token(user)
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-
-        reset_link = config('BASE_URL') + f"change/password/{uid}/{token}/"
-
-        send_mail(
+        reset_link = config('BASE_URL') + f"change/password/{token}/"
+        print(reset_link)
+        redis_connection.setex(f"password_reset_token:{token}", 86400, user.id)
+        
+        # HTML content for the email
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; color: #333;">
+            <h2 style="color: #3B81F6;">Reset Your Password</h2>
+            <p>Hello,</p>
+            <p>We received a request to reset your password. Click the button below to set a new password for your account:</p>
+            <p>This will be Valid for only 24 Hours</p>
+            <a href="{reset_link}" style="display: inline-block; padding: 10px 20px; margin-top: 20px; color: white; background-color: #3B81F6; text-decoration: none; border-radius: 5px;">Reset Password</a>
+            <p style="margin-top: 20px; font-size: 12px; color: #888;">If you did not request this, you can safely ignore this email.</p>
+            <p>Thank you,<br>The Zephyr Team</p>
+        </div>
+        """
+        
+        # Create an email message with HTML content
+        email_message = EmailMessage(
             subject='Password Reset Request',
-            message=f'Click the link to reset your password: {reset_link}',
+            body=html_content,
             from_email='noreply@yourdomain.com',
-            recipient_list=[email],
+            to=[email],
         )
+        email_message.content_subtype = "html"  # Specify HTML content type
+        
+        # Send the email
+        email_message.send()
 
         return Response({"detail": "Password reset email has been sent."}, status=status.HTTP_200_OK)
 
@@ -507,3 +526,143 @@ class PasswordResetConfirmView(generics.GenericAPIView):
             return Response({"detail": "Password has been reset."}, status=status.HTTP_200_OK)
 
         return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+    
+class ValidateTokenView(APIView):
+    """
+    post:
+    Validate a password reset token.
+
+    This endpoint is used to verify if a provided password reset token is valid. 
+    The token is expected to be passed in the request body.
+
+    Request Body:
+        - token (string): Required. The password reset token to be validated.
+
+    Responses:
+        - 200 OK: Token is valid.
+          Example response:
+          {
+              "success": True
+          }
+        
+        - 400 Bad Request: Token is missing or the JSON is invalid.
+          Example response:
+          {
+              "success": False,
+              "error": "Token is required"
+          }
+          or
+          {
+              "success": False,
+              "error": "Invalid JSON"
+          }
+
+        - 404 Not Found: Token is invalid or has expired.
+          Example response:
+          {
+              "success": False
+          }
+
+        - 500 Internal Server Error: Unexpected error.
+          Example response:
+          {
+              "success": False,
+              "error": "Description of the error"
+          }
+
+    Exceptions:
+        - JSONDecodeError: Raised if the provided JSON data is invalid.
+        - Exception: Raised for any unexpected errors during processing.
+    """
+    def post(self, request):
+        try:
+            token = request.data.get('token')
+            if not token:
+                return Response({'success': False, 'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+            redis_connection = get_redis_connection("default")
+            user_id = redis_connection.get(f"password_reset_token:{token}")
+            if user_id:
+                return Response({'success': True}, status=status.HTTP_200_OK)
+            else:
+                return Response({'success': False}, status=status.HTTP_404_NOT_FOUND)
+        except json.JSONDecodeError:
+            return Response({'success': False, 'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    
+class ChangePasswordView(APIView):
+    """
+    post:
+    Change the user's password using a password reset token.
+
+    This endpoint allows users to change their password by providing a valid reset token and a new password.
+    The token and new password are expected in the request body.
+
+    Request Body:
+        - token (string): Required. The password reset token used to verify the user's identity.
+        - new_password (string): Required. The new password to be set for the user.
+
+    Responses:
+        - 200 OK: Password successfully changed.
+          Example response:
+          {
+              "success": True,
+              "message": "Password has been successfully changed"
+          }
+        
+        - 400 Bad Request: Missing token or new password in the request.
+          Example response:
+          {
+              "success": False,
+              "error": "Token is required"
+          }
+          or
+          {
+              "success": False,
+              "error": "New password is required"
+          }
+
+        - 404 Not Found: Invalid or expired token.
+          Example response:
+          {
+              "success": False,
+              "error": "Invalid or expired token"
+          }
+
+        - 500 Internal Server Error: Unexpected error during processing.
+          Example response:
+          {
+              "success": False,
+              "error": "Description of the error"
+          }
+
+    Exceptions:
+        - Exception: Handles unexpected errors, returning a 500 status with the error message.
+    """
+    def post(self, request):
+        try:
+            token = request.data.get('token')
+            new_password = request.data.get('new_password')
+            if not token:
+                return Response({'success': False, 'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not new_password:
+                return Response({'success': False, 'error': 'New password is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            redis_connection = get_redis_connection("default")
+            user_id = redis_connection.get(f"password_reset_token:{token}")
+            if not user_id:
+                return Response({'success': False, 'error': 'Invalid or expired token'}, status=status.HTTP_404_NOT_FOUND)
+
+            user_id = int(user_id) 
+            user = get_object_or_404(CustomUser, id=user_id)
+
+            user.password = make_password(new_password)  
+            user.save()
+
+            redis_connection.delete(f"password_reset_token:{token}")
+
+            return Response({'success': True, 'message': 'Password has been successfully changed'}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
