@@ -12,5 +12,8 @@ urlpatterns = [
     path('investor-user-info/', UserInfoAPIView.as_view(), name='user-info'),
     path('user/update/', InvestorPreferencesUpdateView.as_view(), name='user-update'),
     path('business-preferences/', BusinessPreferencesView.as_view(), name='business-preferences-detail'),
-
+    path('business-upload-video/', VideoPitchUploadView.as_view(), name='VideoPitchUploadView'),
+    path('upload-document/', UploadDocumentView.as_view(), name='upload-document'),
+    path('business-profile-info/', CombinedUserDetailView.as_view(), name='combined_user_detail'),
+    path('delete-document/<int:pk>/', BusinessDocumentDeleteView.as_view(), name='document-delete'),
 ]

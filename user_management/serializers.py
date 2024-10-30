@@ -122,7 +122,7 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
 class BusinessPreferencesSerializer(serializers.ModelSerializer):
     industry = serializers.SlugRelatedField(slug_field='name', queryset=Industry.objects.all())
     location = serializers.SlugRelatedField(slug_field='name', queryset=Location.objects.all())
-    user = BusinessProfileSerializer()
+    user = BusinessProfileSerializer(read_only=True)
 
     class Meta:
         model = BusinessPreferences
@@ -147,21 +147,86 @@ class BusinessPreferencesSerializer(serializers.ModelSerializer):
         ]
 
     def update(self, instance, validated_data):
-        user_data = validated_data.pop('user', None)
-
-        if user_data:
-            phone_number = user_data.get('phone_number')
-            if phone_number:
-                current_phone_number = instance.user.phone_number
-                if phone_number != current_phone_number:
-                    if CustomUser.objects.filter(phone_number=phone_number).exclude(id=instance.user.id).exists():
-                        raise serializers.ValidationError({"phone_number": "This phone number is already in use."})
-                instance.user.phone_number = phone_number
-                instance.user.save()
-
         if 'avatar_image' in validated_data:
             instance.avatar_image = validated_data.pop('avatar_image')
         if 'cover_image' in validated_data:
             instance.cover_image = validated_data.pop('cover_image')
 
         return super().update(instance, validated_data)
+    
+
+class VideoPitchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VideoPitch
+        fields = ['id', 'video_title', 'video_description', 'video_file']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+    
+class DocumentsBusinessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentsBusiness
+        fields = ['id','document_title', 'document_description', 'document_file']
+        
+        
+
+class CombinedDataBusinessProfileSerializer(serializers.ModelSerializer):
+    business_preferences = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+    video_pitch = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'phone_number', 'role', 'full_name', 'email', 'status',
+                  'business_preferences', 'documents', 'video_pitch']
+
+    def get_business_preferences(self, obj):
+        try:
+            preferences = BusinessPreferences.objects.get(user=obj)
+            return {
+                'cover_image': preferences.cover_image.url if preferences.cover_image else None,
+                'avatar_image': preferences.avatar_image.url if preferences.avatar_image else None,
+                'company_name': preferences.company_name,
+                'industry': preferences.industry.name if preferences.industry else None,
+                'location': preferences.location.name if preferences.location else None,
+                'business_type': preferences.business_type,
+                'company_stage': preferences.company_stage,
+                'listed_status': preferences.listed_status,
+                'company_description': preferences.company_description,
+                'seeking_amount': str(preferences.seeking_amount),
+                'website': preferences.website,
+                'product_type': preferences.product_type,
+                'annual_revenue': str(preferences.annual_revenue),
+                'employee_count': preferences.employee_count,
+                'linkedIn': preferences.linkedIn,
+                'facebook': preferences.facebook,
+                'twitter': preferences.twitter,
+            }
+        except BusinessPreferences.DoesNotExist:
+            return None
+
+    def get_documents(self, obj):
+        documents = DocumentsBusiness.objects.filter(user=obj)
+        return [
+            {
+                'id':doc.id,
+                'document_title': doc.document_title,
+                'document_description': doc.document_description,
+                'document_file': doc.document_file.url if doc.document_file else None
+            }
+            for doc in documents
+        ]
+
+    def get_video_pitch(self, obj):
+        try:
+            video = VideoPitch.objects.get(user=obj)
+            return {
+                'video_title': video.video_title,
+                'video_description': video.video_description,
+                'video_file': video.video_file.url if video.video_file else None
+            }
+        except VideoPitch.DoesNotExist:
+            return None

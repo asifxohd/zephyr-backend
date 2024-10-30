@@ -203,30 +203,233 @@ class InvestorPreferencesUpdateView(generics.RetrieveUpdateAPIView):
     def perform_update(self, serializer):
         serializer.save()
         
-class BusinessPreferencesView(APIView):
+
+class BusinessPreferencesView(generics.RetrieveUpdateAPIView):
+    """
+    API view for retrieving and updating a user's business preferences.
+
+    This view provides authenticated users with the ability to retrieve their
+    existing business preferences or update them. If the user's preferences
+    do not exist, a 404 response will be returned. The phone number field can 
+    also be updated and is validated to ensure uniqueness.
+
+    Permissions:
+    - Only authenticated users have access to this endpoint.
+
+    Attributes:
+    - permission_classes (list): List of permission classes required for access.
+    - serializer_class (BusinessPreferencesSerializer): Serializer class for business preferences.
+
+    Methods:
+    - get_object(self): Retrieves the business preferences for the authenticated user, or returns None if not found.
+    - get(self, request, *args, **kwargs): Handles GET requests to retrieve business preferences.
+    - update(self, request, *args, **kwargs): Handles PUT/PATCH requests to update business preferences, including phone number uniqueness validation.
+    - perform_update(self, serializer): Saves the updated preferences to the database.
+
+    Responses:
+    - 200 OK: Successfully retrieved or updated business preferences.
+    - 404 Not Found: No business preferences found for the user.
+    - 400 Bad Request: Validation error if the phone number is already in use.
+
+    Example Request (PUT /api/business-preferences/):
+    ```
+    {
+        "business_field_1": "Updated value",
+        "business_field_2": "Another updated value",
+        "phone_number": "+1234567890"
+    }
+    ```
+    """
     permission_classes = [IsAuthenticated]
+    serializer_class = BusinessPreferencesSerializer
+
+    def get_object(self):
+        user = self.request.user
+        try:
+            return BusinessPreferences.objects.get(user=user)
+        except BusinessPreferences.DoesNotExist:
+            return None
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-        try:
-            business_preferences = BusinessPreferences.objects.get(user=user)
-            serializer = BusinessPreferencesSerializer(business_preferences)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except BusinessPreferences.DoesNotExist:
-            return Response({"detail": "No business preferences found for this user."}, status=status.HTTP_404_NOT_FOUND)
-
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        data = request.data
-
-        try:
-            business_preferences = BusinessPreferences.objects.get(user=user)
-            serializer = BusinessPreferencesSerializer(business_preferences, data=data, partial=True)
-        except BusinessPreferences.DoesNotExist:
-            serializer = BusinessPreferencesSerializer(data=data)
-
-        if serializer.is_valid():
-            serializer.save(user=user)
+        business_preferences = self.get_object()
+        if business_preferences is not None:
+            serializer = self.get_serializer(business_preferences)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "No business preferences found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+    def update(self, request, *args, **kwargs):
+        business_preferences = self.get_object()
+        if business_preferences is None:
+            return Response({"detail": "No business preferences found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.user
+        update_number=request.data.get('phone_number',None)
+        # user_data = request.data.get('user', {})
+        # phone_number = user_data.get('phone_number')
+
+        if update_number :
+            if CustomUser.objects.filter(phone_number=update_number).exclude(id=user.id).exists():
+                return Response({"phone_number": "This phone number is already in use."}, status=status.HTTP_400_BAD_REQUEST)
+            user.phone_number = update_number
+            user.save()
+
+        serializer = self.get_serializer(business_preferences, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)
+        
+        
+
+class VideoPitchUploadView(generics.CreateAPIView):
+    """
+    View for uploading a video pitch related to business preferences.
+    
+    This endpoint allows authenticated users to upload a video pitch with a title, 
+    description, and a video file. The user ID is automatically associated with the 
+    video pitch upon creation.
+
+    Permissions:
+    - Only authenticated users can access this endpoint.
+    
+    Request Body:
+    - title (str): The title of the video. Required. Max length 50 characters.
+    - description (str): A description of the video. Required. Max length 200 characters.
+    - file (file): The video file. Required. Only accepts .mp4, .mov, or .avi files.
+
+    Responses:
+    - 201 Created: If the video pitch is successfully uploaded.
+    - 400 Bad Request: If validation fails (e.g., missing fields, invalid file type).
+
+    Example:
+    ```
+    POST /upload-video/
+    {
+        "title": "My Business Pitch",
+        "description": "A brief description of my business idea.",
+        "file": "<video_file>"
+    }
+    ```
+    """
+    
+    queryset = VideoPitch.objects.all()
+    serializer_class = VideoPitchSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """
+        Associates the current user with the video pitch before saving.
+
+        Parameters:
+        - serializer (VideoPitchSerializer): The serializer containing validated data.
+
+        Returns:
+        - VideoPitch instance saved with the authenticated user.
+        """
+        serializer.save(user=self.request.user)
+
+
+class UploadDocumentView(generics.CreateAPIView):
+    """
+    API view to upload a document related to business preferences.
+
+    This endpoint allows authenticated users to upload documents with a title, 
+    description, and a file. The uploaded document will be associated with the 
+    currently logged-in user.
+
+    Permissions:
+        - Only authenticated users can upload documents.
+
+    Request Body:
+        - document_title: Required. The title of the document.
+        - document_description: Required. A description of the document.
+        - document_file: Required. The file to be uploaded (must be a PDF, Word document, or Excel file).
+
+    Response:
+        - On success, returns the created document details with a 201 status code.
+        - On failure, returns validation errors with a 400 status code.
+    """
+
+    queryset = DocumentsBusiness.objects.all()
+    serializer_class = DocumentsBusinessSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """
+        Save the document instance with the associated user.
+
+        This method overrides the default create method to add the currently 
+        authenticated user to the document instance being created.
+
+        Args:
+            serializer: An instance of the serializer class for the model.
+        """
+        
+        user = self.request.user
+        document_title = serializer.validated_data['document_title']
+        if DocumentsBusiness.objects.filter(user=user, document_title=document_title).exists():
+            raise serializers.ValidationError({'document_title': 'A document with this title already exists for your account.'})
+        
+        serializer.save(user=self.request.user)
+        
+        
+class CombinedUserDetailView(generics.RetrieveAPIView):
+    """
+    Retrieve detailed information about the authenticated user.
+
+    This view returns a combined data profile for the authenticated user,
+    which includes business-related information. It is accessible only to 
+    authenticated users.
+
+    ---
+    responses:
+      200:
+        description: Successfully retrieved user profile data.
+        schema:
+          $ref: '#/definitions/CombinedDataBusinessProfile'  # Assuming you have this definition in your Swagger schema.
+      401:
+        description: Unauthorized access, user must be authenticated.
+      404:
+        description: User not found (this shouldn't happen as it returns the current user).
+    """
+    serializer_class = CombinedDataBusinessProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+class BusinessDocumentDeleteView(generics.DestroyAPIView):
+    """
+    Delete a business document.
+
+    This view allows authenticated users to delete a specific document 
+    related to their business by its ID. The document will be removed from 
+    the database.
+
+    ---
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: integer
+        description: The ID of the business document to be deleted.
+    responses:
+      204:
+        description: Business document successfully deleted.
+      401:
+        description: Unauthorized access; user must be authenticated.
+      404:
+        description: Business document not found. The specified document does not exist.
+    """
+    queryset = DocumentsBusiness.objects.all()
+    serializer_class = DocumentsBusinessSerializer
+    permission_classes=[IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        document = self.get_object()
+        document.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

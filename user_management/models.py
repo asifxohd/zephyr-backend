@@ -40,7 +40,6 @@ class BusinessPreferences(models.Model):
     def __str__(self):
         return f"Business Preferences for {self.company_name}"
     
-
 class DocumentsBusiness(models.Model):
     """
     Model to store documents related to business preferences.
@@ -52,7 +51,10 @@ class DocumentsBusiness(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'xls', 'xlsx'])],
         help_text="Choose File"
     )
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='business_documents')
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='business_documents')
+
+    class Meta:
+        unique_together = ('user', 'document_title')
 
     def __str__(self):
         return self.document_title
@@ -73,3 +75,4 @@ class VideoPitch(models.Model):
     def __str__(self):
         return self.video_title
 
+            
