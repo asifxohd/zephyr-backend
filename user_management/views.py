@@ -7,8 +7,25 @@ from .serializers import *
 from rest_framework.exceptions import NotFound
 import json
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
+from user_authentication.permission import IsAdmin, IsBusiness, IsInvestor
 
+class CustomPagination(PageNumberPagination):
+    page_size = 7  
+    page_size_query_param = 'page_size'
+    max_page_size = 100 
+
+    def get_paginated_response(self, data):
+        return Response({
+            'count': self.page.paginator.count,
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'results': data
+        })
+        
 
 class LocationViewSet(viewsets.ModelViewSet):
     """
@@ -93,7 +110,7 @@ class UserInfoAPIView(generics.GenericAPIView):
     Methods:
         GET: Retrieve the details of the authenticated user.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInvestor]
     serializer_class = CustomUserSerializer
     
     def get(self, request, *args, **kwargs):
@@ -145,7 +162,7 @@ class InvestorPreferencesUpdateView(generics.RetrieveUpdateAPIView):
             400 Bad Request: If the provided IDs are not valid, or if the JSON format is incorrect.
     """
     serializer_class = InvestorPreferencesSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsInvestor]
 
     def get_object(self):
         preferences, created = InvestorPreferences.objects.get_or_create(
@@ -240,16 +257,16 @@ class BusinessPreferencesView(generics.RetrieveUpdateAPIView):
     }
     ```
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsBusiness]
     serializer_class = BusinessPreferencesSerializer
 
     def get_object(self):
         user = self.request.user
         try:
-            return BusinessPreferences.objects.get(user=user)
+            return BusinessPreferences.objects.filter(user=user).first() 
         except BusinessPreferences.DoesNotExist:
-            return None
-
+            return Response({"detail": "No business preferences found for this user."}, status=status.HTTP_404_NOT_FOUND)
+            
     def get(self, request, *args, **kwargs):
         business_preferences = self.get_object()
         if business_preferences is not None:
@@ -260,8 +277,10 @@ class BusinessPreferencesView(generics.RetrieveUpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         business_preferences = self.get_object()
+        print(business_preferences)
         if business_preferences is None:
-            return Response({"detail": "No business preferences found for this user."}, status=status.HTTP_404_NOT_FOUND)
+            BusinessPreferences.objects.create( user=request.user, cover_image=None, avatar_image=None, company_name="Dummy Company", industry=None, location=None, business_type="Dummy Type", company_stage="Dummy Stage", listed_status=True, company_description="This is a dummy company description.", seeking_amount=0, website="https://www.dummycompany.com", product_type="Dummy Product", annual_revenue=0, employee_count=0, linkedIn="https://www.linkedin.com/in/dummy", facebook="https://www.facebook.com/dummy", twitter="https://www.twitter.com/dummy")
+            business_preferences = BusinessPreferences.objects.get(user= request.user)
 
         user = request.user
         update_number=request.data.get('phone_number',None)
@@ -318,7 +337,7 @@ class VideoPitchUploadView(generics.CreateAPIView):
     
     queryset = VideoPitch.objects.all()
     serializer_class = VideoPitchSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated , IsBusiness]
 
     def perform_create(self, serializer):
         """
@@ -356,7 +375,7 @@ class UploadDocumentView(generics.CreateAPIView):
 
     queryset = DocumentsBusiness.objects.all()
     serializer_class = DocumentsBusinessSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsBusiness]
 
     def perform_create(self, serializer):
         """
@@ -427,9 +446,151 @@ class BusinessDocumentDeleteView(generics.DestroyAPIView):
     """
     queryset = DocumentsBusiness.objects.all()
     serializer_class = DocumentsBusinessSerializer
-    permission_classes=[IsAuthenticated]
+    permission_classes=[IsAuthenticated, IsBusiness]
 
     def delete(self, request, *args, **kwargs):
         document = self.get_object()
         document.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class InvestorPreferencesListView(generics.ListAPIView):
+    """
+    Retrieve investor preferences profile for the authenticated user.
+
+    **GET** /api/investor/
+    Returns the investor's details including:
+    - Avatar Image
+    - Full Name
+    - Email
+    - Phone Number
+    - Status
+
+    Permissions:
+        - Authenticated users only.
+    """
+
+    serializer_class = InvestorSerializer
+    permission_classes = [IsAuthenticated,IsAdmin]
+    pagination_class = CustomPagination
+
+    def get_queryset(self):
+        """
+        Override the get_queryset method to retrieve all investor preferences.
+
+        Returns:
+            QuerySet: A queryset containing all InvestorPreferences instances.
+        """
+        return CustomUser.objects.filter(role='investor').prefetch_related('investor_preferences').order_by('full_name')
+    
+    
+class InvestorSearchView(generics.ListAPIView):
+    serializer_class = InvestorSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = CustomPagination
+    
+    def get_queryset(self):
+        query = self.request.query_params.get('query', None)
+        
+        base_queryset = CustomUser.objects.filter(role='investor').prefetch_related('investor_preferences')
+        
+        if query:
+            base_queryset = base_queryset.filter(
+                Q(full_name__icontains=query) | 
+                Q(email__icontains=query) | 
+                Q(phone_number__icontains=query)
+            )
+        
+        # Apply ordering to the queryset in both cases
+        return base_queryset.order_by('full_name')
+    
+class ToggleUserStatus(APIView):
+    def patch(self, request, id):
+        user = get_object_or_404(CustomUser, id=id)
+        user.status = not user.status
+        user.save()
+        return Response({'message': 'User status updated successfully', 'status': user.status}, status=status.HTTP_200_OK)
+
+
+class AdminInvestorUserDetailAPIView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = CustomInvestorUserSerializer
+    queryset = CustomUser.objects.filter(role='investor')
+    
+    def get_object(self):
+        """Retrieve the user object based on the provided ID."""
+        user_id = self.kwargs['pk']
+        try:
+            return self.get_queryset().get(pk=user_id)
+        except CustomUser.DoesNotExist:
+            raise NotFound('User not found.')
+        
+    
+class ListBusinessUsersInAdminView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = AdminBusinessSerializer
+    pagination_class = CustomPagination
+    
+    def get_queryset(self):
+        """
+        Override the get_queryset method to retrieve all investor preferences.
+
+        Returns:
+            QuerySet: A queryset containing all InvestorPreferences instances.
+        """
+        return CustomUser.objects.filter(role='business').prefetch_related('business_preferences').order_by('full_name')
+    
+    
+class AdminBusinessSearchView(generics.ListAPIView):
+    serializer_class = AdminBusinessSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = CustomPagination
+    
+    def get_queryset(self):
+        query = self.request.query_params.get('query', None)
+        
+        base_queryset = CustomUser.objects.filter(role='business').prefetch_related('business_preferences')
+        
+        if query:
+            base_queryset = base_queryset.filter(
+                Q(full_name__icontains=query) | 
+                Q(email__icontains=query) | 
+                Q(phone_number__icontains=query) |
+                Q(business_preferences__company_name__icontains=query) 
+
+            )
+        
+        return base_queryset.order_by('full_name')
+    
+    
+
+class RetrieveSpecificUserDetailedBusinessProfileView(generics.RetrieveAPIView):
+    """
+    Retrieve detailed information about a specific user identified by user ID.
+
+    This view fetches combined business profile data for the specified user ID,
+    which includes business-related information and additional media files. Only
+    authenticated users with the correct permissions can access this endpoint.
+
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the user to retrieve.
+    responses:
+      200:
+        description: Successfully retrieved user profile data.
+        schema:
+          $ref: '#/definitions/DetailedInformationForSpecificUserBusinessProfile'
+      401:
+        description: Unauthorized access, user must be authenticated.
+      404:
+        description: User not found.
+    """
+    serializer_class = DetailedInformationForSpecificUserBusinessProfileSerializer
+    # permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        user_id = self.kwargs.get('pk')
+        return generics.get_object_or_404(CustomUser, id=user_id)

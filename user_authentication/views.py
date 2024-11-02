@@ -21,6 +21,9 @@ from django.core.mail import EmailMessage
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import make_password
 
+
+
+
 class MyTokenObtainPairView(TokenObtainPairView):
     """
     token class view jwt
@@ -365,8 +368,11 @@ class GoogleLoginAPIView(APIView):
             "access": str(access_token),
             "refresh": str(refresh),
         }
-        return Response({"tokens": tokens}, status=status.HTTP_200_OK)
-
+        if user.status:
+            return Response({"tokens": tokens}, status=status.HTTP_200_OK)
+        else:
+            raise PermissionDenied("User is temporarily blocked.")
+        
 
 class ChangePasswordViewProfile(generics.UpdateAPIView):
     """
