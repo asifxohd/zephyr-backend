@@ -470,7 +470,7 @@ class InvestorPreferencesListView(generics.ListAPIView):
     """
 
     serializer_class = InvestorSerializer
-    permission_classes = [IsAuthenticated,IsAdmin]
+    permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
 
     def get_queryset(self):
@@ -594,3 +594,24 @@ class RetrieveSpecificUserDetailedBusinessProfileView(generics.RetrieveAPIView):
     def get_object(self):
         user_id = self.kwargs.get('pk')
         return generics.get_object_or_404(CustomUser, id=user_id)
+    
+    
+    
+class InvesterCardListViewWithMinimalData(generics.ListAPIView):
+    serializer_class = ListingInvestorSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
+
+    def get_queryset(self):
+
+        return CustomUser.objects.filter(role='investor').prefetch_related('investor_preferences').order_by('full_name')
+    
+    
+class UserBusinessPreferencesListView(generics.ListAPIView):
+    serializer_class = UserSideBusinessPreferencesSerializer
+    # permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
+
+    def get_queryset(self):
+        return BusinessPreferences.objects.select_related('location', 'industry', 'user') \
+            .filter(user__role='business').order_by('user__full_name')

@@ -356,3 +356,27 @@ class DetailedInformationForSpecificUserBusinessProfileSerializer(serializers.Mo
             }
         except VideoPitch.DoesNotExist:
             return None
+
+
+class ListingInvestorSerializer(serializers.ModelSerializer):
+    avatar_image = serializers.ImageField(source='investor_preferences.avatar_image', required=False)
+    description = serializers.CharField(source='investor_preferences.description', required=False)
+    full_name = serializers.CharField()
+    email = serializers.EmailField()
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'avatar_image', 'description', 'full_name', 'email']
+        
+        
+        
+class UserSideBusinessPreferencesSerializer(serializers.ModelSerializer):
+    # company_name = serializers.CharField(source="company_name")
+    location = serializers.CharField(source="location.name")
+    industry = serializers.CharField(source="industry.name")
+    about_description = serializers.CharField(source="company_description")
+    avatar_image = serializers.ImageField()
+
+    class Meta:
+        model = BusinessPreferences
+        fields = ['company_name', 'location', 'industry', 'about_description', 'avatar_image']
