@@ -28,7 +28,9 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('api/', include('user_authentication.urls')),
-    path('api/', include('user_management.urls'))
+    path('api/', include('user_management.urls')),
+    path('api/', include('subscriptions.urls'))
+
 ]
 
 if settings.DEBUG:

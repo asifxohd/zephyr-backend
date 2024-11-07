@@ -603,15 +603,16 @@ class InvesterCardListViewWithMinimalData(generics.ListAPIView):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-
-        return CustomUser.objects.filter(role='investor').prefetch_related('investor_preferences').order_by('full_name')
+        current_user = self.request.user
+        return CustomUser.objects.filter(role='investor').exclude(id=current_user.id).prefetch_related('investor_preferences').order_by('full_name')
     
     
 class UserBusinessPreferencesListView(generics.ListAPIView):
     serializer_class = UserSideBusinessPreferencesSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
 
     def get_queryset(self):
+        current_user = self.request.user
         return BusinessPreferences.objects.select_related('location', 'industry', 'user') \
-            .filter(user__role='business').order_by('user__full_name')
+            .filter(user__role='business').exclude(user=current_user).order_by('user__full_name')

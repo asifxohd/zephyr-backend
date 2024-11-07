@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django_filters',
     'user_authentication',
     'user_management',
+    'subscriptions',
 ]
 
 
@@ -178,6 +179,13 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# settings.py
+#stripe configuration
+STRIPE_TEST_PUBLISHABLE_KEY = config('STRIPE_TEST_PUBLISHABLE_KEY')
+STRIPE_TEST_SECRET_KEY = config('STRIPE_TEST_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
 
-
+# stripe price id 
+STRIPE_PLAN_FREE_TRIAL = config('STRIPE_PLAN_FREE_TRIAL')
+STRIPE_PLAN_MONTHLY = config('STRIPE_PLAN_MONTHLY')
+STRIPE_PLAN_SEMI_ANNUAL = config('STRIPE_PLAN_SEMI_ANNUAL')
+STRIPE_PLAN_ANNUAL = config('STRIPE_PLAN_ANNUAL')
