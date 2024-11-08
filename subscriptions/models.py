@@ -28,15 +28,16 @@ class Subscriptions(models.Model):
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     stripe_subscription_id = models.CharField(max_length=255, unique=True)
-    stripe_price_id = models.CharField(max_length=255)  # To store the plan ID (e.g., price_7_day_free_trial)
     plan_type = models.CharField(max_length=50, choices=PLAN_TYPE_CHOICES)  # Subscription plan
     status = models.CharField(max_length=50, choices=STATUS_CHOICES)  # Active, Canceled, Past Due, etc.
     start_date = models.DateTimeField()  # The date when the subscription starts
     end_date = models.DateTimeField()  # The date when the subscription ends
-    trial_ends_at = models.DateTimeField(null=True, blank=True)  # End of the free trial period
     has_used_free_trial = models.BooleanField(default=False)  # Track if the user has used the free trial
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.user.email} - {self.plan_type} - {self.status}"

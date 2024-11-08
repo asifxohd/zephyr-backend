@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CreateCheckoutSession, SubscriptionSuccess, SubscriptionCancel, HandleStripeWebhook, CheckSubscriptionStatusView
+from .views import CreateCheckoutSession, SubscriptionSuccess, SubscriptionCancel, HandleStripeWebhook, CheckSubscriptionStatusView,SubscriptionDetailView
 
 urlpatterns = [
     path('create-checkout-session/<str:plan_type>/', CreateCheckoutSession.as_view(), name='create-checkout-session'),
@@ -7,5 +7,6 @@ urlpatterns = [
     path('subscription/cancel/', SubscriptionCancel.as_view(), name='subscription-cancel'),
     path('webhook/', HandleStripeWebhook.as_view(), name='stripe-webhook'),
     path('check-subscription/', CheckSubscriptionStatusView.as_view(), name='check-subscription'),
+    path('subscription/info/', SubscriptionDetailView.as_view(), name='subscription-detail'),
 
 ]
