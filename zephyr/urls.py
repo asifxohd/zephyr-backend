@@ -29,8 +29,10 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('api/', include('user_authentication.urls')),
     path('api/', include('user_management.urls')),
-    path('api/', include('subscriptions.urls'))
-
+    path('api/', include('subscriptions.urls')),
+    path('api/', include('connections.urls')),
+    path('api/chat/', include('chat.urls')),
+    path('api/feed/', include('feed.urls'))
 ]
 
 if settings.DEBUG:

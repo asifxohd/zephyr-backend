@@ -376,7 +376,8 @@ class UserSideBusinessPreferencesSerializer(serializers.ModelSerializer):
     industry = serializers.CharField(source="industry.name")
     about_description = serializers.CharField(source="company_description")
     avatar_image = serializers.ImageField()
+    user_id = serializers.IntegerField(source="user.id")
 
     class Meta:
         model = BusinessPreferences
-        fields = ['company_name', 'location', 'industry', 'about_description', 'avatar_image']
+        fields = ['id', 'company_name', 'location', 'industry', 'about_description', 'avatar_image','user_id']

@@ -512,7 +512,7 @@ class ToggleUserStatus(APIView):
 
 
 class AdminInvestorUserDetailAPIView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated]
     serializer_class = CustomInvestorUserSerializer
     queryset = CustomUser.objects.filter(role='investor')
     

@@ -25,6 +25,4 @@ urlpatterns = [
     path('admin/business/individual-business-info/<int:pk>/', RetrieveSpecificUserDetailedBusinessProfileView.as_view(), name='retrieve_specific_user_detailed_business_profile'),
     path('fetch-investors/', InvesterCardListViewWithMinimalData.as_view(), name='investor-preferences-list'),
     path('fetch-business-user/', UserBusinessPreferencesListView.as_view(), name='business-preferences-list'),
-
-
 ]

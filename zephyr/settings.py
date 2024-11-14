@@ -35,6 +35,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,6 +50,9 @@ INSTALLED_APPS = [
     'user_authentication',
     'user_management',
     'subscriptions',
+    'connections',
+    'chat',
+    'feed',
 ]
 
 
@@ -84,7 +89,17 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'zephyr.wsgi.application'
+ASGI_APPLICATION = 'zephyr.asgi.application'
+
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.RedisChannelLayer',  # Use Redis as the channel layer backend
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],  # Adjust the host and port as per your Redis configuration
+        },
+    },
+}
 
 
 # Database
@@ -100,8 +115,10 @@ DATABASES = {
         "PORT": config('DB_PORT'),
     }
 }
+
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=50),
     'REFRESH_TOKEN_LIFETIME':timedelta(days=15),
 }
 REST_FRAMEWORK = {
@@ -114,14 +131,13 @@ REST_FRAMEWORK = {
     
 }
 
-CACHES = {
+CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': config('REDIS_LOCATION'),  
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('localhost', 6379)],
+        },
+    },
 }
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

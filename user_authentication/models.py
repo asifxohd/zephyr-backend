@@ -32,6 +32,9 @@ class InvestorPreferences(models.Model):
 
     def __str__(self):
         return f"Preferences for {self.user.email}"
+    
+    
+    
 class CustomUser(AbstractUser):
     """
     Custom user model for handling different types of users.
