@@ -10,6 +10,7 @@ from user_authentication.models import CustomUser
 from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import timedelta
+from chat.models import Conversation
 
 User = get_user_model()
 
@@ -24,6 +25,7 @@ class FollowUserView(APIView):
             return Response({"detail": "Already following this user."}, status=status.HTTP_400_BAD_REQUEST)
 
         Connections.objects.create(follower=follower, followed=followed)
+        Conversation.objects.create(user_one=follower, user_two=followed)
         return Response({"detail": "User followed successfully."}, status=status.HTTP_201_CREATED)
 
     def delete(self, request, user_id):
@@ -31,10 +33,13 @@ class FollowUserView(APIView):
         follower = request.user
 
         connection = Connections.objects.filter(follower=follower, followed=followed).first()
+        chat = Conversation.objects.filter(user_one=follower, user_two=followed).first()
+
         if not connection:
             return Response({"detail": "Not following this user."}, status=status.HTTP_400_BAD_REQUEST)
 
         connection.delete()
+        chat.delete()
         return Response({"detail": "User unfollowed successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 class FollowersListView(APIView):

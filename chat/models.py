@@ -2,7 +2,6 @@ from django.db import models
 from user_authentication.models import CustomUser
 from django.db.models import Q
 
-# Constants for content types (message types: text, image, voice)
 TEXT = 'text'
 IMAGE = 'image'
 VOICE = 'voice'
@@ -13,7 +12,6 @@ CONTENT_TYPE_CHOICES = [
     (VOICE, 'Voice'),
 ]
 
-# Constants for message status (Sent, Delivered, Read)
 SENT = 'sent'
 DELIVERED = 'delivered'
 READ = 'read'
@@ -24,14 +22,12 @@ STATUS_CHOICES = [
     (READ, 'Read'),
 ]
 
-# Custom manager for Conversation model to query by user
 class ConversationManager(models.Manager):
     def by_user(self, user):
         """Retrieve all conversations that the user is a participant in."""
         lookup = Q(user_one=user) | Q(user_two=user)
         return self.get_queryset().filter(lookup).distinct()
 
-# Conversation model representing a conversation between two users
 class Conversation(models.Model):
     user_one = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='conversations_as_user_one')
     user_two = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='conversations_as_user_two')
@@ -39,14 +35,12 @@ class Conversation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)  # Timestamp when the conversation was created
     
     class Meta:
-        unique_together = ['user_one', 'user_two']  # Ensure one unique conversation between two users
+        unique_together = ['user_one', 'user_two']
 
-    objects = ConversationManager()  # Custom manager for querying conversations
-
+    objects = ConversationManager()  
     def __str__(self):
         return f"Conversation between {self.user_one} and {self.user_two}"
 
-# Message model for storing individual messages within a conversation
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, null=True, blank=True, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="sent_messages")  # User who sent the message

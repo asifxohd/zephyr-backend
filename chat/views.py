@@ -16,74 +16,66 @@ class UserProfileView(APIView):
     def get(self, request):
         try:
             user = request.user
-            
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found"}, status=status_code.HTTP_404_NOT_FOUND)
 
-        # Fetch connections where the authenticated user is the follower (following other users)
-        following_users = Connections.objects.filter(
-            follower=user
-        ).exclude(followed__role='admin')
+        # Fetch all conversations where the authenticated user is a participant
+        conversations = Conversation.objects.filter(
+            Q(user_one=user) | Q(user_two=user)
+        ).order_by('-last_updated')  # Optionally order by the last updated timestamp
 
-        # List to store profile data of followed users
         user_profiles = []
 
-        for connection in following_users:
-            # Get the followed user
-            followed_user = connection.followed
+        for conversation in conversations:
+            # Determine the other user in the conversation
+            other_user = conversation.user_two if conversation.user_one == user else conversation.user_one
 
             # Fetch user name based on role
-            if followed_user.role == 'business':
-                business_pref = BusinessPreferences.objects.filter(user=followed_user).first()
-                user_name = business_pref.company_name if business_pref and business_pref.company_name else followed_user.full_name
+            if other_user.role == 'business':
+                business_pref = BusinessPreferences.objects.filter(user=other_user).first()
+                user_name = business_pref.company_name if business_pref and business_pref.company_name else other_user.full_name
             else:
-                user_name = followed_user.full_name
+                user_name = other_user.full_name
 
             # Fetch avatar image based on role
-            if followed_user.role == 'investor':
-                avatar = InvestorPreferences.objects.filter(user=followed_user).first()
+            if other_user.role == 'investor':
+                avatar = InvestorPreferences.objects.filter(user=other_user).first()
                 avatar_image = avatar.avatar_image.url if avatar else None
-            elif followed_user.role == 'business':
-                avatar = BusinessPreferences.objects.filter(user=followed_user).first()
+            elif other_user.role == 'business':
+                avatar = BusinessPreferences.objects.filter(user=other_user).first()
                 avatar_image = avatar.avatar_image.url if avatar else None
             else:
                 avatar_image = None
 
-            # Fetch status (assuming an online/offline tracking mechanism is in place)
-            status = "Offline"  # Placeholder (replace with actual logic if available)
-
-            # Fetch the last message for the conversation with the followed user
-            conversation = Conversation.objects.filter(
-                Q(user_one=followed_user, user_two=user) | Q(user_one=user, user_two=followed_user)
-            ).first()
-            
+            # Fetch the last message for the conversation
             last_message = None
             last_seen_time = None
-            if conversation:
-                last_msg = Message.objects.filter(conversation=conversation).order_by('-timestamp').first()
-                if last_msg:
-                    last_message = last_msg.get_content()
-                    last_seen_time = last_msg.timestamp
-                else:
-                    last_message = "No messages"
-                    last_seen_time = None
+            last_msg = Message.objects.filter(conversation=conversation).order_by('-timestamp').first()
+            if last_msg:
+                last_message = last_msg.get_content()
+                last_seen_time = last_msg.timestamp
             else:
                 last_message = "No messages"
                 last_seen_time = None
 
-            # Prepare the profile data for each followed user
+            # Fetch status (assuming an online/offline tracking mechanism is in place)
+            status = "Offline"  # Placeholder (replace with actual logic if available)
+
+            # Prepare the profile data for the other user in the conversation
             profile_data = {
-                "user_id": followed_user.id,
+                "user_id": other_user.id,
                 "user_name": user_name,
                 "status": status,
                 "avatar_image": avatar_image,
                 "last_message": last_message,
                 "last_seen_time": last_seen_time,
+                "conversation_id": conversation.id,  
             }
 
             user_profiles.append(profile_data)
 
         return Response(user_profiles, status=status_code.HTTP_200_OK)
+
 
 
 

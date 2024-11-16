@@ -1,9 +1,11 @@
 # views.py
-from rest_framework import generics
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status, generics
 from .models import Post, Comment, Like, Share
 from .serializers import PostSerializer, CommentSerializer, LikeSerializer, ShareSerializer
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -13,6 +15,17 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+        
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True) 
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -49,14 +62,6 @@ class CommentListView(generics.ListAPIView):
         post_id = self.kwargs['post_id']
         print(post_id)
         return Comment.objects.filter(post_id=post_id).order_by('-created_at')
-    
-    
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from .models import Post, Like
-from django.shortcuts import get_object_or_404
 
 
 class ToggleLikePostView(APIView):
@@ -85,3 +90,12 @@ class ToggleLikePostView(APIView):
                 "isLiked": True,
                 "total_likes": post.total_likes()
             }, status=status.HTTP_201_CREATED)
+
+
+class PostViewForRequestUser(generics.ListAPIView):
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        return Post.objects.filter(user=user).order_by('-created_at')
