@@ -616,3 +616,15 @@ class UserBusinessPreferencesListView(generics.ListAPIView):
         current_user = self.request.user
         return BusinessPreferences.objects.select_related('location', 'industry', 'user') \
             .filter(user__role='business').exclude(user=current_user).order_by('user__full_name')
+            
+
+class FetchUserRoleView(APIView):
+    """
+    API to fetch the role of a user based on their ID.
+    """
+    def get(self, request, id):
+        try:
+            user = CustomUser.objects.get(id=id)
+            return Response({"role": user.role})
+        except CustomUser.DoesNotExist:
+            raise NotFound("User not found.")

@@ -16,9 +16,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.accept()
         except Exception as e:
             print(f"Error connecting: {e}")
-            await self.close()
+            await self.close(code=4000)
 
     async def receive(self, text_data):
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!")
         data = json.loads(text_data)
         message_content = data.get('message')
         sender_id = data.get('sender_id')
