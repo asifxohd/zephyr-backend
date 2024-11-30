@@ -59,6 +59,7 @@ class UserRegistrationView(APIView):
             - HTTP 500 Internal Server Error: If caching the data or sending the OTP fails.
         """
         try:
+            print(request.data)
             serializer = CustomeUserModelSerializer(data=request.data)
             if serializer.is_valid():
                 validated_data = serializer.validated_data
@@ -103,6 +104,7 @@ class UserRegistrationView(APIView):
             )
 
         except Exception as e:
+            print(f"Unexpected error: {str(e)}")
             return Response(
                 {"error": "An unexpected error occurred. Please try again later."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

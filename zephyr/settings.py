@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'connections',
     'chat',
     'feed',
+    'notifications'
 ]
 
 
@@ -92,14 +93,7 @@ TEMPLATES = [
 ASGI_APPLICATION = 'zephyr.asgi.application'
 
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.RedisChannelLayer',  # Use Redis as the channel layer backend
-        'CONFIG': {
-            'hosts': [('127.0.0.1', 6379)],  # Adjust the host and port as per your Redis configuration
-        },
-    },
-}
+
 
 
 # Database
@@ -129,6 +123,17 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
     
+}
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+    }
 }
 
 CHANNEL_LAYERS = {

@@ -32,7 +32,9 @@ urlpatterns = [
     path('api/', include('subscriptions.urls')),
     path('api/', include('connections.urls')),
     path('api/chat/', include('chat.urls')),
-    path('api/feed/', include('feed.urls'))
+    path('api/feed/', include('feed.urls')),
+    path('api/', include('notifications.urls'))
+
 ]
 
 if settings.DEBUG:

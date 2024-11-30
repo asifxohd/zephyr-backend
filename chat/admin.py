@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Conversation, Message
+from .models import Conversation, Message,OnlineChatStatus
 from .models import DELIVERED, READ  
 
 class ConversationAdmin(admin.ModelAdmin):
@@ -34,3 +34,4 @@ class MessageAdmin(admin.ModelAdmin):
 
 admin.site.register(Conversation, ConversationAdmin)
 admin.site.register(Message, MessageAdmin)
+admin.site.register(OnlineChatStatus)

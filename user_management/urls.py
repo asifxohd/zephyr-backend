@@ -26,5 +26,5 @@ urlpatterns = [
     path('fetch-investors/', InvesterCardListViewWithMinimalData.as_view(), name='investor-preferences-list'),
     path('fetch-business-user/', UserBusinessPreferencesListView.as_view(), name='business-preferences-list'),
     path('fetch-user-role/<int:id>/', FetchUserRoleView.as_view(), name='fetch_user_role'),
-
+    path('user-details/', UserDetailsAPIView.as_view(), name='user-details'),
 ]

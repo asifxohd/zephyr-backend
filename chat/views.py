@@ -2,13 +2,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status as status_code
 from django.db.models import Max
-from .models import Conversation, Message
+from .models import Conversation, Message,OnlineChatStatus
 from user_authentication.models import CustomUser, InvestorPreferences
 from user_management.models import BusinessPreferences
 from connections.models import Connections
 from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
 from .serializers import MessageSerializer
+from django_redis import get_redis_connection
+
 
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -59,7 +61,27 @@ class UserProfileView(APIView):
                 last_seen_time = None
 
             # Fetch status (assuming an online/offline tracking mechanism is in place)
-            status = "Offline"  # Placeholder (replace with actual logic if available)
+            # status = "Offline"  # Placeholder (replace with actual logic if available)
+            # key = f"user:{other_user.pk}:status"
+            try:
+                status_obj = OnlineChatStatus.objects.get(user__id=other_user.pk)
+                status = status_obj.status
+                print(status_obj.user.email,status)
+            except:
+                # OnlineChatStatus.objects.create(user__id=other_user.pk,stat)
+                status = 'offline'
+            # redis_connection = get_redis_connection("default")
+
+            # # Get the value for the key
+            # try:
+            #     status = redis_connection.get(key)
+            #     status = status.decode('utf-8')
+            #     print(status)
+            # except:
+            #     status='offline'
+            #     print('offline')
+
+        # 
 
             # Prepare the profile data for the other user in the conversation
             profile_data = {

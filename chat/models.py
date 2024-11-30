@@ -33,11 +33,12 @@ class Conversation(models.Model):
     user_two = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='conversations_as_user_two')
     last_updated = models.DateTimeField(auto_now=True)  # Timestamp of the last update (e.g., last message)
     created_at = models.DateTimeField(auto_now_add=True)  # Timestamp when the conversation was created
+
+    objects = ConversationManager()  
     
     class Meta:
         unique_together = ['user_one', 'user_two']
 
-    objects = ConversationManager()  
     def __str__(self):
         return f"Conversation between {self.user_one} and {self.user_two}"
 
@@ -76,3 +77,14 @@ class Message(models.Model):
         """Mark the message as read."""
         self.status = READ
         self.save()
+
+class OnlineChatStatus(models.Model):
+    # STATUS_CHOICES = [
+    #     ('offline', 'Offline'),
+    #     ('online', 'Online'),
+    # ]
+    user=models.ForeignKey(CustomUser,on_delete=models.CASCADE)
+    status=models.CharField(max_length=20,default='offline')
+
+    def __str__(self) -> str:
+        return f"user:{self.user}-status:{self.status}"

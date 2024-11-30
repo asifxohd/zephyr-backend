@@ -11,6 +11,10 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import timedelta
 from chat.models import Conversation
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from notifications.models import Notification
+from datetime import datetime
 
 User = get_user_model()
 
@@ -24,6 +28,30 @@ class FollowUserView(APIView):
         if Connections.objects.filter(follower=follower, followed=followed).exists():
             return Response({"detail": "Already following this user."}, status=status.HTTP_400_BAD_REQUEST)
 
+        
+
+        channel_layer = get_channel_layer()
+        message = f"{followed.full_name} started following you!"
+        
+        current_time = datetime.now()
+        formatted_time = f"{current_time:%Y-%m-%dT%H:%M:%S.%f}Z"
+        current_time = formatted_time
+
+        async_to_sync(channel_layer.group_send)(
+            f"notifications_{followed.id}",
+            {
+                "type": "send_notification",
+                "message": message,
+                "created_at": current_time,
+            }
+        )
+
+        notification = Notification.objects.create(
+            recipient=followed,
+            message=f"{follower.full_name} started following you!",
+        )
+
+
         Connections.objects.create(follower=follower, followed=followed)
         Conversation.objects.create(user_one=follower, user_two=followed)
         return Response({"detail": "User followed successfully."}, status=status.HTTP_201_CREATED)
@@ -33,10 +61,15 @@ class FollowUserView(APIView):
         follower = request.user
 
         connection = Connections.objects.filter(follower=follower, followed=followed).first()
+        print(connection)
         chat = Conversation.objects.filter(user_one=follower, user_two=followed).first()
 
         if not connection:
             return Response({"detail": "Not following this user."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        notification = Notification.objects.filter(recipient=followed).first()
+        if notification:
+            notification.delete()
 
         connection.delete()
         chat.delete()

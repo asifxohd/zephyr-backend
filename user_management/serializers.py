@@ -381,3 +381,8 @@ class UserSideBusinessPreferencesSerializer(serializers.ModelSerializer):
     class Meta:
         model = BusinessPreferences
         fields = ['id', 'company_name', 'location', 'industry', 'about_description', 'avatar_image','user_id']
+
+
+class UserImageNameDetailsSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    avatar_image = serializers.ImageField()

@@ -6,13 +6,34 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from rest_framework.pagination import PageNumberPagination
 
+
+class CustomPagination(PageNumberPagination):
+    page_size = 1  # Number of items per page
+    page_size_query_param = 'page_size'  # Allow clients to set a custom page size
+    max_page_size = 100  # Maximum allowed page size
+
+    def get_paginated_response(self, data):
+        return Response({
+            'links': {
+                'next': self.get_next_link(),
+                'previous': self.get_previous_link()
+            },
+            'total_count': self.page.paginator.count,
+            'total_pages': self.page.paginator.num_pages,
+            'current_page': self.page.number,
+            'page_size': self.get_page_size(self.request),
+            'results': data
+        })
+    
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
+    pagination_class = CustomPagination
+    
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
         

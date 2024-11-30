@@ -628,3 +628,37 @@ class FetchUserRoleView(APIView):
             return Response({"role": user.role})
         except CustomUser.DoesNotExist:
             raise NotFound("User not found.")
+        
+
+class UserDetailsAPIView(APIView):
+    """
+    API to fetch the name and avatar image based on the user's role.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        data = {}
+
+        if user.role == "investor":
+            try:
+                investor_preferences = InvestorPreferences.objects.get(user=user)
+                data['name'] = user.full_name
+                data['avatar_image'] = investor_preferences.avatar_image.url if investor_preferences.avatar_image else None
+            except InvestorPreferences.DoesNotExist:
+                data['name'] = user.full_name
+                data['avatar_image'] = None
+
+        elif user.role == "business":
+            try:
+                business_preferences = BusinessPreferences.objects.get(user=user)
+                data['name'] = business_preferences.company_name or user.full_name
+                data['avatar_image'] = business_preferences.avatar_image.url if business_preferences.avatar_image else None
+            except BusinessPreferences.DoesNotExist:
+                data['name'] = user.full_name
+                data['avatar_image'] = None
+
+        else:
+            return Response({"error": "Invalid user role."}, status=400)
+
+        return Response(data, status=200)
